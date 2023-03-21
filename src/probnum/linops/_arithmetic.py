@@ -5,6 +5,7 @@ import numpy as np
 import scipy.sparse
 
 from probnum import config, utils
+from probnum.randprocs.covfuncs import CovarianceLinearOperator
 from probnum.typing import NotImplementedType, ScalarLike, ShapeLike
 
 from ._arithmetic_fallbacks import (
@@ -183,6 +184,43 @@ _mul_fns[(Kronecker, np.number)] = _mul_kronecker_scalar
 _matmul_fns[(Kronecker, Scaling)] = _matmul_kronecker_scaling
 _matmul_fns[(Scaling, Kronecker)] = _matmul_scaling_kronecker
 
+
+# CovarianceLinearOperator
+
+
+def _mul_scalar_cov_linop(
+    scalar: ScalarLike, cov_linop: CovarianceLinearOperator
+) -> CovarianceLinearOperator:
+    return CovarianceLinearOperator(
+        cov_linop.x0,
+        cov_linop.x1,
+        cov_linop.shape,
+        lambda x0, x1: scalar * cov_linop.todense(),
+        keops_lazy_tensor=scalar * cov_linop.keops_lazy_tensor
+        if cov_linop.keops_lazy_tensor is not None
+        else None,
+    )
+
+
+def _mul_cov_linop_scalar(
+    cov_linop: CovarianceLinearOperator, scalar: ScalarLike
+) -> CovarianceLinearOperator:
+    return CovarianceLinearOperator(
+        cov_linop.x0,
+        cov_linop.x1,
+        cov_linop.shape,
+        lambda x0, x1: scalar * cov_linop.todense(),
+        keops_lazy_tensor=scalar * cov_linop.keops_lazy_tensor
+        if cov_linop.keops_lazy_tensor is not None
+        else None,
+    )
+
+
+_add_fns[
+    (CovarianceLinearOperator, CovarianceLinearOperator)
+] = CovarianceLinearOperator._add_cov_linop
+_mul_fns[(np.number, CovarianceLinearOperator)] = _mul_scalar_cov_linop
+_mul_fns[(CovarianceLinearOperator, np.number)] = _mul_cov_linop_scalar
 
 # IdentityKronecker
 

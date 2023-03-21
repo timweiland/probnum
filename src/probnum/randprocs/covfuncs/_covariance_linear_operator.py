@@ -1,12 +1,12 @@
 """LinearOperator that represents pairwise covariances of evaluations."""
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 import warnings
 
 import numpy as np
 
 from probnum import linops
-from probnum.typing import ShapeType
+from probnum.typing import NotImplementedType, ShapeType
 
 _USE_KEOPS = True
 try:
@@ -65,6 +65,14 @@ class CovarianceLinearOperator(linops.LinearOperator):
         super().__init__(shape, dtype)
 
     @property
+    def x0(self) -> np.ndarray:
+        return self._x0
+
+    @property
+    def x1(self) -> Optional[np.ndarray]:
+        return self._x1
+
+    @property
     def keops_lazy_tensor(self) -> Optional["LazyTensor"]:
         """:class:`~pykeops.numpy.LazyTensor` representing the covariance matrix
         corresponding to the given batches of input points.
@@ -87,4 +95,28 @@ class CovarianceLinearOperator(linops.LinearOperator):
             (self.shape[1], self.shape[0]),
             lambda x0, x1: self._evaluate_dense_matrix(x0, x1).T,
             self._keops_lazy_tensor.T if self._keops_lazy_tensor is not None else None,
+        )
+
+    def _add_cov_linop(
+        self, other: "CovarianceLinearOperator"
+    ) -> Union[NotImplementedType, "CovarianceLinearOperator"]:
+        if not (
+            np.array_equal(self.x0, other.x0) and np.array_equal(self.x1, other.x1)
+        ):
+            return NotImplemented
+        if self.keops_lazy_tensor is not None and other.keops_lazy_tensor is None:
+            return NotImplemented
+        if self.keops_lazy_tensor is None and other.keops_lazy_tensor is not None:
+            return NotImplemented
+
+        keops_lazy_tensor = None
+        if self.keops_lazy_tensor is not None and other.keops_lazy_tensor is not None:
+            keops_lazy_tensor = self.keops_lazy_tensor + other.keops_lazy_tensor
+
+        return CovarianceLinearOperator(
+            self.x0,
+            self.x1,
+            self.shape,
+            lambda x0, x1: self.todense() + other.todense(),
+            keops_lazy_tensor,
         )
