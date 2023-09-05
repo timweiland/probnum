@@ -601,6 +601,7 @@ class CovarianceFunction(abc.ABC):
             shape,
             self._evaluate_matrix,
             keops_lazy_tensor,
+            class_name=self.__class__.__name__,
         )
 
     def _check_shapes(
