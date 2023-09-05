@@ -65,6 +65,8 @@ class CovarianceLinearOperator(linops.LinearOperator):
         self._evaluate_dense_matrix = evaluate_dense_matrix
         self._keops_lazy_tensor = keops_lazy_tensor
         self._use_keops = _USE_KEOPS and self._keops_lazy_tensor is not None
+        if shape[0] == 1 or shape[1] == 1:
+            self._use_keops = False
         dtype = np.promote_types(x0.dtype, x1.dtype) if x1 is not None else x0.dtype
         super().__init__(shape, dtype)
     
