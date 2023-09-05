@@ -91,7 +91,7 @@ class Function(abc.ABC):
             If the shape of ``x`` does not match :attr:`input_shape` along its last
             dimensions.
         """
-        x = np.asarray(x)
+        x = np.asanyarray(x)
 
         # Shape checking
         if x.shape[x.ndim - self.input_ndim :] != self.input_shape:
