@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Optional, Union
 
 import numpy as np
+import torch
 
 from probnum.typing import DTypeLike, ScalarLike, ShapeLike
 import probnum.utils
@@ -76,6 +77,9 @@ class Scaling(_linear_operator.LambdaLinearOperator):
                 matmul = lambda x: x.astype(
                     np.result_type(self.dtype, x.dtype), copy=False
                 )
+                matmul_torch = lambda x: x.type(
+                    torch.result_type(self.dtype, x.dtype), copy=False
+                )
 
                 apply = lambda x, axis: x.astype(
                     np.result_type(self.dtype, x.dtype), copy=False
@@ -94,6 +98,7 @@ class Scaling(_linear_operator.LambdaLinearOperator):
                 )
             else:
                 matmul = lambda x: self._scalar * x
+                matmul_torch = lambda x: torch.Tensor(self._scalar, device=x.device) * x
 
                 apply = lambda x, axis: self._scalar * x
 
@@ -125,6 +130,7 @@ class Scaling(_linear_operator.LambdaLinearOperator):
             dtype = self._factors.dtype
 
             matmul = lambda x: self._factors[:, None] * x
+            matmul_torch = lambda x: torch.Tensor(self._factors[:, None].copy(), device=x.device) * x
 
             apply = lambda x, axis: (
                 self._factors.reshape((-1,) + (x.ndim - (axis + 1)) * (1,)) * x
@@ -149,6 +155,7 @@ class Scaling(_linear_operator.LambdaLinearOperator):
             shape,
             dtype,
             matmul=matmul,
+            matmul_torch=matmul_torch,
             apply=apply,
             solve=lambda B: self.inv() @ B,
             todense=todense,
@@ -356,11 +363,17 @@ class Zero(_linear_operator.LambdaLinearOperator):
             target_shape = list(x.shape)
             target_shape[-2] = self.shape[0]
             return np.zeros(target_shape, np.result_type(x, self.dtype))
+        
+        def matmul_torch(x: torch.Tensor) -> torch.Tensor:
+            target_shape = list(x.shape)
+            target_shape[-2] = self.shape[0]
+            return torch.zeros(target_shape, torch.result_type(x, self.dtype))
 
         super().__init__(
             shape,
             dtype=dtype,
             matmul=matmul,
+            matmul_torch=matmul_torch,
             todense=todense,
             transpose=lambda: Zero(self.shape[::-1], self.dtype),
             rank=rank,

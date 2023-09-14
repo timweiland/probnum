@@ -7,10 +7,12 @@ import numpy as np
 
 from probnum import linops
 from probnum.typing import ShapeType
+import torch
 
 _USE_KEOPS = True
 try:
     from pykeops.numpy import LazyTensor
+    from pykeops.torch import LazyTensor as LazyTensor_Torch
 except ImportError:  # pragma: no cover
     _USE_KEOPS = False
     warnings.warn(
@@ -56,6 +58,7 @@ class CovarianceLinearOperator(linops.LinearOperator):
         shape: ShapeType,
         evaluate_dense_matrix: Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray],
         keops_lazy_tensor: Optional["LazyTensor"] = None,
+        keops_lazy_tensor_torch: Optional["LazyTensor_Torch"] = None,
         class_name=None,
     ):
         self._x0 = x0
@@ -64,12 +67,13 @@ class CovarianceLinearOperator(linops.LinearOperator):
 
         self._evaluate_dense_matrix = evaluate_dense_matrix
         self._keops_lazy_tensor = keops_lazy_tensor
+        self._keops_lazy_tensor_torch = keops_lazy_tensor_torch
         self._use_keops = _USE_KEOPS and self._keops_lazy_tensor is not None
         if shape[0] == 1 or shape[1] == 1:
             self._use_keops = False
         dtype = np.promote_types(x0.dtype, x1.dtype) if x1 is not None else x0.dtype
         super().__init__(shape, dtype)
-    
+
     @property
     def class_name(self) -> str:
         return self._class_name
@@ -82,6 +86,14 @@ class CovarianceLinearOperator(linops.LinearOperator):
         """
         return self._keops_lazy_tensor
 
+    @property
+    def keops_lazy_tensor_torch(self) -> Optional["LazyTensor_Torch"]:
+        """:class:`~pykeops.torch.LazyTensor` representing the covariance matrix
+        corresponding to the given batches of input points.
+        When not using KeOps, this is set to :data:`None`.
+        """
+        return self._keops_lazy_tensor_torch
+
     def _todense(self) -> np.ndarray:
         return self._evaluate_dense_matrix(self._x0, self._x1)
 
@@ -91,6 +103,12 @@ class CovarianceLinearOperator(linops.LinearOperator):
             return self.keops_lazy_tensor @ x
         return self.todense() @ x
 
+    def _matmul_torch(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.contiguous()
+        if self._use_keops:
+            return self.keops_lazy_tensor_torch @ x
+        return torch.as_tensor(self.todense()) @ x
+
     def _transpose(self) -> linops.LinearOperator:
         return CovarianceLinearOperator(
             self._x0,
@@ -98,5 +116,8 @@ class CovarianceLinearOperator(linops.LinearOperator):
             (self.shape[1], self.shape[0]),
             lambda x0, x1: self._evaluate_dense_matrix(x0, x1).T,
             self._keops_lazy_tensor.T if self._keops_lazy_tensor is not None else None,
+            self._keops_lazy_tensor_torch.T
+            if self._keops_lazy_tensor_torch is not None
+            else None,
             class_name=self._class_name,
         )

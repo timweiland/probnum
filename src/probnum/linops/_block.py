@@ -8,6 +8,7 @@ import numpy as np
 from scipy.linalg import block_diag
 
 from probnum.typing import DTypeLike, LinearOperatorLike
+import torch
 
 from . import _linear_operator, _utils
 
@@ -77,6 +78,9 @@ class BlockDiagonalMatrix(_linear_operator.LinearOperator):
 
     def _split_input(self, x: np.ndarray) -> np.ndarray:
         return np.split(x, self.split_indices, axis=-2)
+    
+    def _split_input_torch(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.split(x, self.split_indices, dim=-2)
 
     def _matmul(self, x: np.ndarray) -> np.ndarray:
         return np.concatenate(
@@ -85,6 +89,15 @@ class BlockDiagonalMatrix(_linear_operator.LinearOperator):
                 for cur_block, cur_x in zip(self.blocks, self._split_input(x))
             ),
             axis=-2,
+        )
+    
+    def _matmul_torch(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.cat(
+            tuple(
+                cur_block @ cur_x
+                for cur_block, cur_x in zip(self.blocks, self._split_input_torch(x))
+            ),
+            dim=-2,
         )
 
     def _transpose(self) -> BlockDiagonalMatrix:

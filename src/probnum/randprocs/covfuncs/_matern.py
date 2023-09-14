@@ -5,16 +5,19 @@ import functools
 from typing import Optional, Tuple
 
 import numpy as np
+from pykeops.torch import LazyTensor as LazyTensor_Torch
 import scipy.special
 
 from probnum.typing import ArrayLike, ScalarLike, ScalarType, ShapeLike
 import probnum.utils as _utils
+import torch
 
 from ._covariance_function import CovarianceFunction, IsotropicMixin
 
 _USE_KEOPS = True
 try:
     from pykeops.numpy import LazyTensor
+    from pykeops.torch import LazyTensor as LazyTensor_Torch
 except ImportError:  # pragma: no cover
     _USE_KEOPS = False
 
@@ -221,6 +224,29 @@ class Matern(CovarianceFunction, IsotropicMixin):
 
         # TODO: Add KeOps implementation for non-half-integer case
         raise NotImplementedError()
+
+    def _keops_lazy_tensor_torch(self, x0: torch.Tensor, x1: torch.Tensor | None) -> LazyTensor_Torch:
+        if not _USE_KEOPS:
+            raise ImportError()
+        
+        scaled_dists = self._euclidean_distances_keops_torch(
+            x0, x1, scale_factors=torch.from_numpy(np.asarray(self._scale_factors)).to(x0.device)
+        )
+
+        if self.is_half_integer:
+            # Evaluate the polynomial part using Horner's method
+            coeffs = torch.from_numpy(Matern._half_integer_coefficients_floating(self.p)).to(x0.device)
+
+            res = coeffs[self.p]
+
+            for i in range(self.p - 1, -1, -1):
+                res *= scaled_dists
+                res += coeffs[i]
+
+            # Exponential part
+            res *= (-scaled_dists).exp()
+
+            return res
 
     @staticmethod
     @functools.lru_cache(maxsize=None)

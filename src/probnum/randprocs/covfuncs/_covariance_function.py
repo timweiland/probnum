@@ -8,9 +8,11 @@ import operator
 from typing import Optional, Union
 
 import numpy as np
+import torch
 
 try:
     from pykeops.numpy import LazyTensor
+    from pykeops.torch import LazyTensor as LazyTensor_Torch
 except ImportError:  # pragma: no cover
     pass
 
@@ -550,6 +552,11 @@ class CovarianceFunction(abc.ABC):
         """
         raise NotImplementedError()
 
+    def _keops_lazy_tensor_torch(
+        self, x0: torch.Tensor, x1: Optional[torch.Tensor]
+    ) -> "LazyTensor_Torch":
+        return None
+
     def _evaluate_matrix(
         self,
         x0: np.ndarray,
@@ -588,8 +595,15 @@ class CovarianceFunction(abc.ABC):
     ) -> linops.LinearOperator:
         try:
             keops_lazy_tensor = self._keops_lazy_tensor(x0, x1)
+            device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            x0_torch = torch.tensor(x0, device=device)
+            x1_torch = (
+                torch.tensor(x1, device=device) if x1 is not None else None
+            )
+            keops_lazy_tensor_torch = self._keops_lazy_tensor_torch(x0_torch, x1_torch)
         except (NotImplementedError, ImportError):
             keops_lazy_tensor = None
+            keops_lazy_tensor_torch = None
 
         shape = (
             self.output_size_0 * x0.shape[0],
@@ -601,6 +615,7 @@ class CovarianceFunction(abc.ABC):
             shape,
             self._evaluate_matrix,
             keops_lazy_tensor,
+            keops_lazy_tensor_torch,
             class_name=self.__class__.__name__,
         )
 
@@ -843,5 +858,48 @@ class IsotropicMixin(abc.ABC):  # pylint: disable=too-few-public-methods
         supports scalar inputs, an optional second argument, and separate scale factors
         for each input dimension."""
         return self._squared_euclidean_distances_keops(
+            x0, x1, scale_factors=scale_factors
+        ).sqrt()
+
+    def _squared_euclidean_distances_keops_torch(
+        self,
+        x0: torch.Tensor,
+        x1: Optional[torch.Tensor],
+        *,
+        scale_factors: Optional[torch.Tensor] = None,
+    ) -> "LazyTensor_Torch":
+        """KeOps-based implementation of the squared (modified) Euclidean distance,
+        which supports scalar inputs, an optional second argument, and separate scale
+        factors for each input dimension."""
+        # pylint: disable=import-outside-toplevel
+        from pykeops.torch import Pm, Vi, Vj
+
+        if x1 is None:
+            x1 = x0
+        if len(x0.shape) < 2:
+            x0 = x0.reshape(-1, 1).contiguous()
+        if len(x1.shape) < 2:
+            x1 = x1.reshape(-1, 1).contiguous()
+
+        sqdiffs = Vi(x0) - Vj(x1)
+
+        if scale_factors is not None:
+            sqdiffs *= Pm(scale_factors)
+
+        sqdiffs *= sqdiffs
+
+        return sqdiffs.sum()
+
+    def _euclidean_distances_keops_torch(
+        self,
+        x0: torch.Tensor,
+        x1: Optional[torch.Tensor],
+        *,
+        scale_factors: Optional[torch.Tensor] = None,
+    ) -> "LazyTensor_Torch":
+        """KeOps-based implementation of the (modified) Euclidean distance, which
+        supports scalar inputs, an optional second argument, and separate scale factors
+        for each input dimension."""
+        return self._squared_euclidean_distances_keops_torch(
             x0, x1, scale_factors=scale_factors
         ).sqrt()

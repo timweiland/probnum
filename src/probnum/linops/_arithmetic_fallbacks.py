@@ -6,6 +6,7 @@ import operator
 from typing import Tuple, Union
 
 import numpy as np
+import torch
 
 from probnum.typing import NotImplementedType, ScalarLike
 import probnum.utils
@@ -37,6 +38,7 @@ class ScaledLinearOperator(LambdaLinearOperator):
             self._linop.shape,
             dtype=dtype,
             matmul=lambda x: self._scalar * (self._linop @ x),
+            matmul_torch=lambda x: torch.Tensor(self._scalar, device=x.device) * (self._linop @ x),
             todense=lambda: self._scalar * self._linop.todense(cache=False),
             transpose=lambda: self._scalar * self._linop.T,
             inverse=self._inv,
@@ -102,6 +104,9 @@ class SumLinearOperator(LambdaLinearOperator):
                 [summand.dtype for summand in self._summands], []
             ),
             matmul=lambda x: functools.reduce(
+                operator.add, (summand @ x for summand in self._summands)
+            ),
+            matmul_torch=lambda x: functools.reduce(
                 operator.add, (summand @ x for summand in self._summands)
             ),
             todense=lambda: functools.reduce(
@@ -195,6 +200,9 @@ class ProductLinearOperator(LambdaLinearOperator):
             shape=(self._factors[0].shape[0], self._factors[-1].shape[1]),
             dtype=np.find_common_type([factor.dtype for factor in self._factors], []),
             matmul=lambda x: functools.reduce(
+                lambda vec, op: op @ vec, reversed(self._factors), x
+            ),
+            matmul_torch=lambda x: functools.reduce(
                 lambda vec, op: op @ vec, reversed(self._factors), x
             ),
             todense=lambda: functools.reduce(

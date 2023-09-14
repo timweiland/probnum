@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Optional, Union
 
 import numpy as np
+import torch
 
 from probnum.typing import DTypeLike, LinearOperatorLike, NotImplementedType
 
@@ -118,6 +119,9 @@ class Kronecker(_linear_operator.LinearOperator):
 
     def _matmul(self, x: np.ndarray) -> np.ndarray:
         return _kronecker_matmul(self.A, self.B, x)
+
+    def _matmul_torch(self, x: torch.Tensor) -> torch.Tensor:
+        return _kronecker_matmul_torch(self.A, self.B, x)
 
     def _solve(self, B: np.ndarray) -> np.ndarray:
         if self.A.is_square and self.B.is_square:
@@ -272,6 +276,32 @@ def _kronecker_matmul(
     # vec(A @ X @ B.T), i.e. revert to stack of vectorized matrices
     y = y.reshape(y.shape[:-2] + (-1,))
     y = np.swapaxes(y, -1, -2)
+
+    return y
+
+
+def _kronecker_matmul_torch(
+    A: _linear_operator.LinearOperator,
+    B: _linear_operator.LinearOperator,
+    x: torch.Tensor,
+):
+    """Efficient multiplication via (A (x) B)vec(X) = vec(AXB^T) where vec is the
+    row-wise vectorization operator.
+    """
+    # vec(X) -> X, i.e. reshape into stack of matrices
+    y = torch.swapaxes(x, -2, -1).contiguous()
+
+    y = y.reshape(y.shape[:-1] + (A.shape[1], B.shape[1]))
+
+    # (X @ B^T)^T = B @ X^T
+    y = B @ torch.swapaxes(y, -1, -2)
+
+    # A @ X @ B^T = A @ (B @ X^T)^T
+    y = A @ torch.swapaxes(y, -1, -2)
+
+    # vec(A @ X @ B^T), i.e. revert to stack of vectorized matrices
+    y = y.reshape(y.shape[:-2] + (-1,))
+    y = torch.swapaxes(y, -1, -2)
 
     return y
 

@@ -9,12 +9,14 @@ from typing import Callable, Optional, Tuple, Union
 import numpy as np
 import scipy.linalg
 import scipy.sparse
+import torch
 
 from probnum import config  # pylint: disable=cyclic-import
 from probnum.typing import ArrayLike, DTypeLike, ScalarLike, ShapeLike
 import probnum.utils
 
 from . import _vectorize
+
 
 BinaryOperandType = Union[
     "LinearOperator", ScalarLike, np.ndarray, scipy.sparse.spmatrix
@@ -1166,6 +1168,11 @@ class LinearOperator(abc.ABC):  # pylint: disable=too-many-instance-attributes
             A `np.ndarray` of shape `(..., M, K)` that is the result of
             `M = self @ x`.
         """
+    
+    def _matmul_torch(self, x: torch.Tensor) -> torch.Tensor:
+        print("Called fallback matmul_torch")
+        print(self.__class__.__name__)
+        return torch.from_numpy(self._matmul(x.numpy()))
 
     def __matmul__(
         self, other: BinaryOperandType
@@ -1210,6 +1217,28 @@ class LinearOperator(abc.ABC):  # pylint: disable=too-many-instance-attributes
                 assert y.shape == (M,)
             elif x.ndim > 1 and x.shape[-2] == N:
                 y = self._matmul(x)
+
+                assert y.ndim > 1
+                assert y.shape == x.shape[:-2] + (M, x.shape[-1])
+            else:
+                raise ValueError(
+                    f"Dimension mismatch. Expected operand of shape ({N},) or "
+                    f"(..., {N}, K), but got {x.shape}."
+                )
+
+            return y
+        elif isinstance(other, torch.Tensor):
+            x = other
+
+            M, N = self.shape
+
+            if x.ndim == 1 and x.shape == (N,):
+                y = self._matmul_torch(x[:, None])[:, 0]
+
+                assert y.ndim == 1
+                assert y.shape == (M,)
+            elif x.ndim > 1 and x.shape[-2] == N:
+                y = self._matmul_torch(x)
 
                 assert y.ndim > 1
                 assert y.shape == x.shape[:-2] + (M, x.shape[-1])
@@ -1352,10 +1381,12 @@ class LambdaLinearOperator(  # pylint: disable=too-many-instance-attributes
         logabsdet: Optional[Callable[[], np.floating]] = None,
         trace: Optional[Callable[[], np.number]] = None,
         diagonal: Optional[Callable[[], np.ndarray]] = None,
+        matmul_torch: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
     ):
         super().__init__(shape, dtype)
 
         self._matmul_fn = matmul  # (self @ x)
+        self._matmul_torch_fn = matmul_torch
         self._apply_fn = apply  # __call__
 
         self._solve_fn = solve
@@ -1376,6 +1407,12 @@ class LambdaLinearOperator(  # pylint: disable=too-many-instance-attributes
 
     def _matmul(self, x: np.ndarray) -> np.ndarray:
         return self._matmul_fn(x)
+
+    def _matmul_torch(self, x: torch.Tensor) -> torch.Tensor:
+        if self._matmul_torch_fn is None:
+            return super()._matmul_torch(x)
+        
+        return self._matmul_torch_fn(x)
 
     def _apply(self, x: np.ndarray, axis: int) -> np.ndarray:
         if self._apply_fn is None:
@@ -1613,6 +1650,7 @@ class Matrix(LambdaLinearOperator):
             self.A = A
 
             matmul = LinearOperator.broadcast_matmat(lambda x: self.A @ x)
+            matmul_torch = None
             todense = self.A.toarray
             trace = lambda: self.A.diagonal().sum()
             diagonal = self.A.diagonal
@@ -1621,6 +1659,7 @@ class Matrix(LambdaLinearOperator):
             self.A.setflags(write=False)
 
             matmul = lambda x: self.A @ x
+            matmul_torch = lambda x: torch.tensor(self.A.copy(), device=x.device, dtype=x.dtype) @ x
             todense = lambda: self.A
             trace = lambda: np.trace(self.A)
             diagonal = lambda: np.diagonal(self.A)
@@ -1629,6 +1668,7 @@ class Matrix(LambdaLinearOperator):
             self.A.shape,
             self.A.dtype,
             matmul=matmul,
+            matmul_torch=matmul_torch,
             todense=todense,
             trace=trace,
             diagonal=diagonal,
@@ -1702,6 +1742,7 @@ class Identity(LambdaLinearOperator):
             shape,
             dtype,
             matmul=lambda x: x.astype(np.result_type(self.dtype, x.dtype), copy=False),
+            matmul_torch=lambda x: x,
             apply=lambda x, axis: x.astype(
                 np.result_type(self.dtype, x.dtype), copy=False
             ),
