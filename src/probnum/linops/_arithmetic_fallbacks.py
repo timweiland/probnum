@@ -11,6 +11,7 @@ from probnum.typing import NotImplementedType, ScalarLike
 import probnum.utils
 
 from ._linear_operator import BinaryOperandType, LambdaLinearOperator, LinearOperator
+from ._scaling import Scaling
 
 ########################################################################################
 # Generic Linear Operator Arithmetic (Fallbacks)
@@ -239,6 +240,22 @@ class ProductLinearOperator(LambdaLinearOperator):
 
     def _solve(self, B: np.ndarray) -> np.ndarray:
         return functools.reduce(lambda b, op: op.solve(b), self._factors, B)
+
+
+class DiagonalScalingLinearOperator(ProductLinearOperator):
+    def __init__(self, linop: LinearOperator, scaling: Scaling, scaling_first=True):
+        self._linop = linop
+        self._scaling = scaling
+        if scaling_first:
+            super().__init__(scaling, linop)
+        else:
+            super().__init__(linop, scaling)
+
+    def diagonal(self) -> np.ndarray:
+        return self._scaling.diagonal() * self._linop.diagonal()
+
+    def __repr__(self):
+        return f"{self._scaling} * {self._linop}"
 
 
 def _matmul_fallback(

@@ -8,6 +8,7 @@ from probnum import config, utils
 from probnum.typing import NotImplementedType, ScalarLike, ShapeLike
 
 from ._arithmetic_fallbacks import (
+    DiagonalScalingLinearOperator,
     NegatedLinearOperator,
     ProductLinearOperator,
     ScaledLinearOperator,
@@ -47,6 +48,7 @@ _AnyLinOp = [
     Embedding,
     Zero,
     Kronecker,
+    DiagonalScalingLinearOperator,
 ]
 
 
@@ -97,6 +99,7 @@ _matmul_fns: _BinaryOperatorRegistryType = {}
 # Fill Arithmetics Registries
 ########################################################################################
 
+
 # Scaling
 def _mul_scalar_scaling(scalar: ScalarLike, scaling: Scaling) -> Scaling:
     if scaling.is_isotropic:
@@ -112,12 +115,25 @@ def _mul_scaling_scalar(scaling: Scaling, scalar: ScalarLike) -> Scaling:
     return Scaling(scalar * scaling.factors, shape=scaling.shape)
 
 
+def _matmul_scaling_linop(scaling: Scaling, linop: LinearOperator) -> LinearOperator:
+    return DiagonalScalingLinearOperator(linop, scaling, scaling_first=True)
+
+
+def _matmul_linop_scaling(linop: LinearOperator, scaling: Scaling) -> LinearOperator:
+    return DiagonalScalingLinearOperator(linop, scaling, scaling_first=False)
+
+
 _mul_fns[(np.number, Scaling)] = _mul_scalar_scaling
 _mul_fns[(Scaling, np.number)] = _mul_scaling_scalar
 _add_fns[(Scaling, Scaling)] = Scaling._add_scaling
 _sub_fns[(Scaling, Scaling)] = Scaling._sub_scaling
 _mul_fns[(Scaling, Scaling)] = Scaling._mul_scaling
 _matmul_fns[(Scaling, Scaling)] = Scaling._matmul_scaling
+
+for op_type in _AnyLinOp:
+    _matmul_fns[(Scaling, op_type)] = _matmul_scaling_linop
+    _matmul_fns[(op_type, Scaling)] = _matmul_linop_scaling
+
 
 # ScaledLinearOperator
 def _matmul_scaled_op(scaled, anylinop):
@@ -190,7 +206,6 @@ _matmul_fns[(Scaling, Kronecker)] = _matmul_scaling_kronecker
 def _matmul_scaling_idkronecker(
     scaling: Scaling, idkronecker: IdentityKronecker
 ) -> IdentityKronecker:
-
     if scaling.shape[1] != idkronecker.shape[0]:
         raise ValueError(
             f"matmul received invalid shapes {scaling.shape} @ {idkronecker.shape}"
@@ -204,7 +219,6 @@ def _matmul_scaling_idkronecker(
 def _matmul_idkronecker_scaling(
     idkronecker: IdentityKronecker, scaling: Scaling
 ) -> IdentityKronecker:
-
     if idkronecker.shape[1] != scaling.shape[0]:
         raise ValueError(
             f"matmul received invalid shapes {idkronecker.shape} @ {scaling.shape}"
@@ -218,7 +232,6 @@ def _matmul_idkronecker_scaling(
 def _mul_scalar_idkronecker(
     scalar: ScalarLike, idkronecker: IdentityKronecker
 ) -> IdentityKronecker:
-
     return IdentityKronecker(
         num_blocks=idkronecker.num_blocks, B=scalar * idkronecker.B
     )
@@ -227,7 +240,6 @@ def _mul_scalar_idkronecker(
 def _mul_idkronecker_scalar(
     idkronecker: IdentityKronecker, scalar: ScalarLike
 ) -> IdentityKronecker:
-
     return IdentityKronecker(
         num_blocks=idkronecker.num_blocks, B=idkronecker.B * scalar
     )
@@ -246,6 +258,7 @@ _matmul_fns[(Scaling, IdentityKronecker)] = _matmul_scaling_idkronecker
 
 _matmul_fns[(Kronecker, IdentityKronecker)] = Kronecker._matmul_kronecker
 _matmul_fns[(IdentityKronecker, Kronecker)] = Kronecker._matmul_kronecker
+
 
 # Matrix
 def _matmul_scaling_matrix(scaling: Scaling, matrix: Matrix) -> Matrix:
@@ -318,7 +331,6 @@ for op_type in _AnyLinOp:
 def _matmul_selection_embedding(
     selection: Selection, embedding: Embedding
 ) -> Union[NotImplementedType, Identity]:
-
     if (embedding.shape[-1] == selection.shape[-2]) and np.all(
         selection.indices == embedding._put_indices
     ):
@@ -329,6 +341,7 @@ def _matmul_selection_embedding(
 
 _matmul_fns[(Selection, Embedding)] = _matmul_selection_embedding
 # Embedding @ Selection would be Projection
+
 
 # Zero
 def _matmul_zero_anylinop(z: Zero, op: LinearOperator) -> Zero:
