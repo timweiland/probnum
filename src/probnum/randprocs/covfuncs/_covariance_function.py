@@ -336,10 +336,10 @@ class CovarianceFunction(abc.ABC):
         See documentation of class :class:`CovarianceFunction`.
         """
 
-        x0 = np.asarray(x0)
+        x0 = np.asanyarray(x0)
 
         if x1 is not None:
-            x1 = np.asarray(x1)
+            x1 = np.asanyarray(x1)
 
         # Shape checking
         broadcast_batch_shape = self._check_shapes(
@@ -819,9 +819,9 @@ class IsotropicMixin(abc.ABC):  # pylint: disable=too-few-public-methods
         if x1 is None:
             x1 = x0
         if len(x0.shape) < 2:
-            x0 = x0.reshape(-1, 1)
+            x0 = np.ascontiguousarray(x0.reshape(-1, 1))
         if len(x1.shape) < 2:
-            x1 = x1.reshape(-1, 1)
+            x1 = np.ascontiguousarray(x1.reshape(-1, 1))
 
         sqdiffs = Vi(x0) - Vj(x1)
 

@@ -86,6 +86,7 @@ class CovarianceLinearOperator(linops.LinearOperator):
         return self._evaluate_dense_matrix(self._x0, self._x1)
 
     def _matmul(self, x: np.ndarray) -> np.ndarray:
+        x = np.ascontiguousarray(x)
         if self._use_keops:
             return self.keops_lazy_tensor @ x
         return self.todense() @ x
