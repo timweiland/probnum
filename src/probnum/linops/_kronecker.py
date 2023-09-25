@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Optional, Union
+import functools
 
 import numpy as np
 import torch
@@ -105,6 +106,12 @@ class Kronecker(_linear_operator.LinearOperator):
     def __init__(self, A: LinearOperatorLike, B: LinearOperatorLike):
         self.A = _utils.aslinop(A)
         self.B = _utils.aslinop(B)
+        self.A_torch = A
+        self.B_torch = B
+        if self.A.shape[0] <= 128 and self.A.shape[1] <= 128:
+            self.A_torch = self._A_dense
+        if self.B.shape[0] <= 128 and self.B.shape[1] <= 128:
+            self.B_torch = self._B_dense
 
         super().__init__(
             shape=(
@@ -116,12 +123,20 @@ class Kronecker(_linear_operator.LinearOperator):
 
         if self.A.is_symmetric and self.B.is_symmetric:
             self.is_symmetric = True
+    
+    @functools.cached_property
+    def _A_dense(self) -> _linear_operator.Matrix:
+        return _utils.aslinop(self.A.todense())
+
+    @functools.cached_property
+    def _B_dense(self) -> _linear_operator.Matrix:
+        return _utils.aslinop(self.B.todense())
 
     def _matmul(self, x: np.ndarray) -> np.ndarray:
         return _kronecker_matmul(self.A, self.B, x)
 
     def _matmul_torch(self, x: torch.Tensor) -> torch.Tensor:
-        return _kronecker_matmul_torch(self.A, self.B, x)
+        return _kronecker_matmul_torch(self.A_torch, self.B_torch, x)
 
     def _solve(self, B: np.ndarray) -> np.ndarray:
         if self.A.is_square and self.B.is_square:

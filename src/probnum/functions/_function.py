@@ -7,6 +7,7 @@ import functools
 from typing import Callable
 
 import numpy as np
+import torch
 
 from probnum import utils
 from probnum.typing import ArrayLike, ShapeLike, ShapeType
@@ -91,7 +92,8 @@ class Function(abc.ABC):
             If the shape of ``x`` does not match :attr:`input_shape` along its last
             dimensions.
         """
-        x = np.asanyarray(x)
+        if not isinstance(x, torch.Tensor):
+            x = np.asanyarray(x)
 
         # Shape checking
         if x.shape[x.ndim - self.input_ndim :] != self.input_shape:
@@ -105,7 +107,10 @@ class Function(abc.ABC):
 
         batch_shape = x.shape[: x.ndim - self.input_ndim]
 
-        fx = self._evaluate(x)
+        if not isinstance(x, torch.Tensor):
+            fx = self._evaluate(x)
+        else:
+            fx = self._evaluate_torch(x)
 
         assert fx.shape == (batch_shape + self.output_shape)
 
@@ -114,6 +119,10 @@ class Function(abc.ABC):
     @abc.abstractmethod
     def _evaluate(self, x: np.ndarray) -> np.ndarray:
         pass
+
+    def _evaluate_torch(self, x: torch.Tensor) -> torch.Tensor:
+        print("Called torch fallback")
+        return self._evaluate(x.cpu().numpy())
 
     def __neg__(self):
         return -1.0 * self

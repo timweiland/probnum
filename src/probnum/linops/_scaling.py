@@ -98,7 +98,7 @@ class Scaling(_linear_operator.LambdaLinearOperator):
                 )
             else:
                 matmul = lambda x: self._scalar * x
-                matmul_torch = lambda x: torch.Tensor(self._scalar, device=x.device) * x
+                matmul_torch = lambda x: torch.tensor(self._scalar, device=x.device) * x
 
                 apply = lambda x, axis: self._scalar * x
 
@@ -130,7 +130,7 @@ class Scaling(_linear_operator.LambdaLinearOperator):
             dtype = self._factors.dtype
 
             matmul = lambda x: self._factors[:, None] * x
-            matmul_torch = lambda x: torch.Tensor(self._factors[:, None].copy(), device=x.device) * x
+            matmul_torch = lambda x: torch.tensor(self._factors[:, None].copy(), device=x.device) * x
 
             apply = lambda x, axis: (
                 self._factors.reshape((-1,) + (x.ndim - (axis + 1)) * (1,)) * x
@@ -367,7 +367,9 @@ class Zero(_linear_operator.LambdaLinearOperator):
         def matmul_torch(x: torch.Tensor) -> torch.Tensor:
             target_shape = list(x.shape)
             target_shape[-2] = self.shape[0]
-            return torch.zeros(target_shape, torch.result_type(x, self.dtype))
+            target_shape = tuple(target_shape)
+            #return torch.zeros(target_shape, torch.result_type(x, self.dtype))
+            return torch.zeros(target_shape, dtype=torch.float64).to(x.device)
 
         super().__init__(
             shape,

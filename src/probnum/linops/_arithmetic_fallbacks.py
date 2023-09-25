@@ -38,7 +38,7 @@ class ScaledLinearOperator(LambdaLinearOperator):
             self._linop.shape,
             dtype=dtype,
             matmul=lambda x: self._scalar * (self._linop @ x),
-            matmul_torch=lambda x: torch.Tensor(self._scalar, device=x.device) * (self._linop @ x),
+            matmul_torch=lambda x: torch.tensor(self._scalar, device=x.device) * (self._linop @ x),
             todense=lambda: self._scalar * self._linop.todense(cache=False),
             transpose=lambda: self._scalar * self._linop.T,
             inverse=self._inv,
