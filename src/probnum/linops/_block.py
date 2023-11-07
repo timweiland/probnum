@@ -80,7 +80,7 @@ class BlockDiagonalMatrix(_linear_operator.LinearOperator):
         return np.split(x, self.split_indices, axis=-2)
     
     def _split_input_torch(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.split(x, self.split_indices, dim=-2)
+        return torch.split(x, [block.shape[1] for block in self._blocks], dim=-2)
 
     def _matmul(self, x: np.ndarray) -> np.ndarray:
         return np.concatenate(
