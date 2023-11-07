@@ -116,10 +116,22 @@ def _mul_scaling_scalar(scaling: Scaling, scalar: ScalarLike) -> Scaling:
 
 
 def _matmul_scaling_linop(scaling: Scaling, linop: LinearOperator) -> LinearOperator:
+    if scaling.is_identity:
+        return linop
+    if scaling.is_isotropic and isinstance(linop, SumLinearOperator):
+        return SumLinearOperator(
+            *(scaling.scalar * L for L in linop.summands)
+        )
     return DiagonalScalingLinearOperator(linop, scaling, scaling_first=True)
 
 
 def _matmul_linop_scaling(linop: LinearOperator, scaling: Scaling) -> LinearOperator:
+    if scaling.is_identity:
+        return linop
+    if scaling.is_isotropic and isinstance(linop, SumLinearOperator):
+        return SumLinearOperator(
+            *(scaling.scalar * L for L in linop.summands)
+        )
     return DiagonalScalingLinearOperator(linop, scaling, scaling_first=False)
 
 

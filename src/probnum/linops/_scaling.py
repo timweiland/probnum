@@ -187,6 +187,11 @@ class Scaling(_linear_operator.LambdaLinearOperator):
             self._factors = np.full(self.shape[0], self._scalar, dtype=self.dtype)
 
         return self._factors
+    
+    @property
+    def is_identity(self) -> bool:
+        """Whether the scaling is the identity."""
+        return np.all(self.factors == 1.0)
 
     @property
     def scalar(self) -> Optional[np.number]:
