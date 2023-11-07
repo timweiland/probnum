@@ -103,14 +103,14 @@ class Kronecker(_linear_operator.LinearOperator):
     """
 
     # todo: extend this to list of operators
-    def __init__(self, A: LinearOperatorLike, B: LinearOperatorLike):
+    def __init__(self, A: LinearOperatorLike, B: LinearOperatorLike, small_dense_factors=True):
         self.A = _utils.aslinop(A)
         self.B = _utils.aslinop(B)
-        self.A_torch = A
-        self.B_torch = B
-        if self.A.shape[0] <= 128 and self.A.shape[1] <= 128:
+        self.A_torch = self.A
+        self.B_torch = self.B
+        if self.A.shape[0] <= 128 and self.A.shape[1] <= 128 and small_dense_factors:
             self.A_torch = self._A_dense
-        if self.B.shape[0] <= 128 and self.B.shape[1] <= 128:
+        if self.B.shape[0] <= 128 and self.B.shape[1] <= 128 and small_dense_factors:
             self.B_torch = self._B_dense
 
         super().__init__(
