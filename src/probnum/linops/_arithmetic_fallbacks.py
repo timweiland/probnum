@@ -93,11 +93,14 @@ class NegatedLinearOperator(ScaledLinearOperator):
 class SumLinearOperator(LambdaLinearOperator):
     """Sum of linear operators."""
 
-    def __init__(self, *summands: LinearOperator):
+    def __init__(self, *summands: LinearOperator, expand_sum: bool = True):
         if not all(summand.shape == summands[0].shape for summand in summands):
             raise ValueError("All summands must have the same shape.")
 
-        self._summands = SumLinearOperator._expand_sum_ops(*summands)
+        if expand_sum:
+            self._summands = SumLinearOperator._expand_sum_ops(*summands)
+        else:
+            self._summands = summands
 
         super().__init__(
             shape=summands[0].shape,
