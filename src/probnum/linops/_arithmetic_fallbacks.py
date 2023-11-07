@@ -13,6 +13,7 @@ import probnum.utils
 
 from ._linear_operator import BinaryOperandType, LambdaLinearOperator, LinearOperator
 from ._scaling import Scaling
+from ._kronecker import Kronecker
 
 ########################################################################################
 # Generic Linear Operator Arithmetic (Fallbacks)
@@ -174,9 +175,13 @@ def _mul_fallback(
 
     if isinstance(op1, LinearOperator):
         if np.ndim(op2) == 0:
+            if isinstance(op1, Kronecker):
+                return Kronecker(op1.A, op2 * op1.B)
             res = ScaledLinearOperator(op1, op2)
     elif isinstance(op2, LinearOperator):
         if np.ndim(op1) == 0:
+            if isinstance(op2, Kronecker):
+                return Kronecker(op2.A, op1 * op2.B)
             res = ScaledLinearOperator(op2, op1)
     return res
 
