@@ -69,11 +69,19 @@ class CovarianceLinearOperator(linops.LinearOperator):
         self._evaluate_dense_matrix = evaluate_dense_matrix
         self._keops_lazy_tensor = keops_lazy_tensor
         self._keops_lazy_tensor_torch = keops_lazy_tensor_torch
-        self._use_keops = _USE_KEOPS and self._keops_lazy_tensor is not None and (shape[0] > 128 or shape[1] > 128)
+        self._use_keops = (
+            _USE_KEOPS
+            and self._keops_lazy_tensor is not None
+            and (shape[0] > 128 or shape[1] > 128)
+        )
         if shape[0] == 1 or shape[1] == 1:
             self._use_keops = False
         dtype = np.promote_types(x0.dtype, x1.dtype) if x1 is not None else x0.dtype
         super().__init__(shape, dtype)
+
+        if x1 is None:
+            self.is_symmetric = True
+            self.is_positive_definite = True
 
     @property
     def class_name(self) -> str:
@@ -122,8 +130,8 @@ class CovarianceLinearOperator(linops.LinearOperator):
             else None,
             class_name=self._class_name,
         )
-    
+
     @functools.cached_property
     def _todense_torch(self) -> torch.Tensor:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         return torch.as_tensor(self.todense()).to(device)
