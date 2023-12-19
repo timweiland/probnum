@@ -22,6 +22,7 @@ from ._linear_operator import (
     Matrix,
     Selection,
 )
+from ._permutation import Permutation
 from ._scaling import Scaling, Zero
 from ._utils import LinearOperatorLike, aslinop
 
@@ -34,6 +35,7 @@ __all__ = [
     "Matrix",
     "Identity",
     "IdentityKronecker",
+    "Permutation",
     "Scaling",
     "Kronecker",
     "Selection",
@@ -50,6 +52,7 @@ Embedding.__module__ = "probnum.linops"
 Matrix.__module__ = "probnum.linops"
 Identity.__module__ = "probnum.linops"
 IdentityKronecker.__module__ = "probnum.linops"
+Permutation.__module__ = "probnum.linops"
 Scaling.__module__ = "probnum.linops"
 Kronecker.__module__ = "probnum.linops"
 Selection.__module__ = "probnum.linops"
