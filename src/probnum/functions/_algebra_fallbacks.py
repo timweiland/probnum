@@ -75,6 +75,66 @@ class SumFunction(Function):
         return super().__sub__(other)
 
 
+class ProductFunction(Function):
+    r"""Pointwise product of :class:`Function`\ s.
+
+    Given functions :math:`f_1, \dotsc, f_n \colon \mathbb{R}^n \to \mathbb{R}^m`, this
+    defines a new function
+
+    .. math::
+        \prod_{i = 1}^n f_i \colon \mathbb{R}^n \to \mathbb{R}^m,
+        x \mapsto \prod_{i = 1}^n f_i(x).
+
+    Parameters
+    ----------
+    *factors
+        The functions :math:`f_1, \dotsc, f_n`.
+    """
+
+    def __init__(self, *factors: Function) -> None:
+        if not all(isinstance(factor, Function) for factor in factors):
+            raise TypeError(
+                "The functions to be multiplied must be objects of type `Function`."
+            )
+
+        if not all(
+            summand.input_shape == factors[0].input_shape for summand in factors
+        ):
+            raise ValueError(
+                "The functions to be multiplied must all have the same input shape."
+            )
+
+        if not all(
+            summand.output_shape == factors[0].output_shape for summand in factors
+        ):
+            raise ValueError(
+                "The functions to be multiplied must all have the same output shape."
+            )
+
+        self._factors = factors
+
+        super().__init__(
+            input_shape=factors[0].input_shape,
+            output_shape=factors[0].output_shape,
+        )
+
+    @property
+    def factors(self) -> tuple[ProductFunction, ...]:
+        r"""The functions :math:`f_1, \dotsc, f_n` to be multiplied."""
+        return self._factors
+
+    def _evaluate(self, x: np.ndarray) -> np.ndarray:
+        return functools.reduce(operator.mul, (factor(x) for factor in self._factors))
+
+    @functools.singledispatchmethod
+    def __mul__(self, other):
+        return super().__add__(other)
+
+    @functools.singledispatchmethod
+    def __rmul__(self, other):
+        return super().__sub__(other)
+
+
 class ScaledFunction(Function):
     r"""Function multiplied pointwise with a scalar.
 

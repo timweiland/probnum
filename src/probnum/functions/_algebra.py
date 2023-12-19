@@ -1,6 +1,6 @@
 r"""Algebraic operations on :class:`Function`\ s."""
 
-from ._algebra_fallbacks import SumFunction
+from ._algebra_fallbacks import ProductFunction, SumFunction
 from ._function import Function
 from ._zero import Zero
 
@@ -32,6 +32,23 @@ def _(self, other: Function) -> SumFunction:
 @Function.__sub__.register  # pylint: disable=no-member
 def _(self, other: Zero) -> Function:  # pylint: disable=unused-argument
     return self
+
+
+@Function.__mul__.register  # pylint: disable=no-member
+@Function.__rmul__.register  # pylint: disable=no-member
+def _(self, other: Function) -> ProductFunction:
+    return ProductFunction(self, other)
+
+
+@Function.__mul__.register  # pylint: disable=no-member
+@Function.__rmul__.register  # pylint: disable=no-member
+def _(self, other: ProductFunction) -> ProductFunction:
+    return ProductFunction(self, *other.factors)
+
+@Function.__mul__.register  # pylint: disable=no-member
+@Function.__rmul__.register  # pylint: disable=no-member
+def _(self, other: Zero) -> Zero:
+    return other
 
 
 ###############
