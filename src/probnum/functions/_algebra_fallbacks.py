@@ -126,14 +126,6 @@ class ProductFunction(Function):
     def _evaluate(self, x: np.ndarray) -> np.ndarray:
         return functools.reduce(operator.mul, (factor(x) for factor in self._factors))
 
-    @functools.singledispatchmethod
-    def __mul__(self, other):
-        return super().__add__(other)
-
-    @functools.singledispatchmethod
-    def __rmul__(self, other):
-        return super().__sub__(other)
-
 
 class ScaledFunction(Function):
     r"""Function multiplied pointwise with a scalar.
