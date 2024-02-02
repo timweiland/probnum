@@ -174,7 +174,7 @@ class ScaledFunction(Function):
 
     @functools.singledispatchmethod
     def __mul__(self, other):
-        if np.ndim(other) == 0:
+        if np.isscalar(other) or (isinstance(other, np.ndarray) and np.ndim(other) == 0):
             return ScaledFunction(
                 function=self._function,
                 scalar=self._scalar * np.asarray(other),
@@ -184,7 +184,7 @@ class ScaledFunction(Function):
 
     @functools.singledispatchmethod
     def __rmul__(self, other):
-        if np.ndim(other) == 0:
+        if np.isscalar(other) or (isinstance(other, np.ndarray) and np.ndim(other) == 0):
             return ScaledFunction(
                 function=self._function,
                 scalar=np.asarray(other) * self._scalar,

@@ -1172,7 +1172,7 @@ class LinearOperator(abc.ABC):  # pylint: disable=too-many-instance-attributes
     def _matmul_torch(self, x: torch.Tensor) -> torch.Tensor:
         print("Called fallback matmul_torch")
         print(self.__class__.__name__)
-        return torch.from_numpy(self._matmul(x.numpy()))
+        return torch.from_numpy(self._matmul(x.cpu().numpy())).to(x.device)
 
     def __matmul__(
         self, other: BinaryOperandType
